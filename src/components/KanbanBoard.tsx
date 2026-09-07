@@ -6,6 +6,7 @@ import { STAGES } from '../types/deal'
 type Props = {
   deals: Deal[]
   onMove: (dealId: string, stage: DealStage) => Promise<void>
+  onCardClick: (deal: Deal) => void
 }
 
 function formatAmount(amount: number | null): string {
@@ -13,7 +14,7 @@ function formatAmount(amount: number | null): string {
   return new Intl.NumberFormat('ru-RU').format(amount)
 }
 
-export default function KanbanBoard({ deals, onMove }: Props) {
+export default function KanbanBoard({ deals, onMove, onCardClick }: Props) {
   const [dragOverStage, setDragOverStage] = useState<DealStage | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
@@ -84,7 +85,8 @@ export default function KanbanBoard({ deals, onMove }: Props) {
                   draggable
                   onDragStart={(e) => handleDragStart(e, deal.id)}
                   onDragEnd={handleDragEnd}
-                  className={`cursor-grab rounded-lg border border-gray-200 bg-white p-3 shadow-sm active:cursor-grabbing ${
+                  onClick={() => onCardClick(deal)}
+                  className={`cursor-pointer rounded-lg border border-gray-200 bg-white p-3 shadow-sm hover:border-gray-300 ${
                     draggedId === deal.id ? 'opacity-50' : ''
                   }`}
                 >

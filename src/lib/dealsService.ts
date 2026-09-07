@@ -58,3 +58,41 @@ export async function updateDealStage(
     throw new Error(error.message)
   }
 }
+
+export async function updateDeal(
+  dealId: string,
+  input: {
+    client: string
+    company: string
+    contact: string
+    amount: number | null
+    note: string
+  },
+): Promise<Deal> {
+  const { data, error } = await supabase
+    .from('deals')
+    .update({
+      client: input.client,
+      company: input.company,
+      contact: input.contact,
+      amount: input.amount,
+      note: input.note,
+    })
+    .eq('id', dealId)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data as Deal
+}
+
+export async function deleteDeal(dealId: string): Promise<void> {
+  const { error } = await supabase.from('deals').delete().eq('id', dealId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}

@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { fetchDeals, createDeal, updateDealStage } from './lib/dealsService'
+import {
+  fetchDeals,
+  createDeal,
+  updateDealStage,
+  updateDeal,
+  deleteDeal,
+} from './lib/dealsService'
 import type { Deal, DealStage } from './types/deal'
 import type { NewDealInput } from './components/DealForm'
+import type { DealEditInput } from './components/DealDetail'
 import LoginScreen from './components/LoginScreen'
 import KanbanBoard from './components/KanbanBoard'
 import DealForm from './components/DealForm'
+import DealDetail from './components/DealDetail'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -14,6 +22,7 @@ function App() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [dealsLoading, setDealsLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -65,9 +74,49 @@ function App() {
     )
     try {
       await updateDealStage(dealId, stage)
+      const moved = previous.find((d) => d.id === dealId)
+      if (moved && stage === 'success') {
+        onDealWon({ ...moved, stage })
+      }
     } catch {
       setDeals(previous)
     }
+  }
+
+  async function handleSaveDealDetail(dealId: string, input: DealEditInput) {
+    const previous = deals
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, ...input } : d)),
+    )
+    try {
+      const updated = await updateDeal(dealId, {
+        client: input.client,
+        company: input.company,
+        contact: input.contact,
+        amount: input.amount,
+        note: input.note,
+      })
+      setDeals((prev) =>
+        prev.map((d) => (d.id === dealId ? { ...d, ...updated } : d)),
+      )
+      if (input.stage === 'success') {
+        onDealWon({ ...input, ...updated, id: dealId } as Deal)
+      }
+      setSelectedDeal(null)
+    } catch {
+      setDeals(previous)
+    }
+  }
+
+  async function handleDeleteDeal(dealId: string) {
+    await deleteDeal(dealId)
+    setDeals((prev) => prev.filter((d) => d.id !== dealId))
+    setSelectedDeal(null)
+  }
+
+  function onDealWon(deal: Deal) {
+    // сюда позже подключим уведомления/интеграции
+    console.log('Сделка выиграна:', deal)
   }
 
   if (loading) {
@@ -120,11 +169,24 @@ function App() {
         {dealsLoading && (
           <p className="mb-4 text-sm text-gray-400">Загрузка сделок…</p>
         )}
-        <KanbanBoard deals={deals} onMove={handleMoveDeal} />
+        <KanbanBoard
+          deals={deals}
+          onMove={handleMoveDeal}
+          onCardClick={setSelectedDeal}
+        />
       </main>
 
       {showForm && (
         <DealForm onCancel={() => setShowForm(false)} onSave={handleSaveDeal} />
+      )}
+
+      {selectedDeal && (
+        <DealDetail
+          deal={selectedDeal}
+          onSave={handleSaveDealDetail}
+          onDelete={handleDeleteDeal}
+          onClose={() => setSelectedDeal(null)}
+        />
       )}
     </div>
   )
