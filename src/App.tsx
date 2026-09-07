@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { fetchDeals, createDeal } from './lib/dealsService'
+import type { Deal } from './types/deal'
+import type { NewDealInput } from './components/DealForm'
 import LoginScreen from './components/LoginScreen'
+import KanbanBoard from './components/KanbanBoard'
+import DealForm from './components/DealForm'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [deals, setDeals] = useState<Deal[]>([])
+  const [dealsLoading, setDealsLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,6 +30,34 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  const loadDeals = useCallback(async () => {
+    if (!session) return
+    setDealsLoading(true)
+    try {
+      const data = await fetchDeals(session.user.id)
+      setDeals(data)
+    } catch {
+      setDeals([])
+    } finally {
+      setDealsLoading(false)
+    }
+  }, [session])
+
+  useEffect(() => {
+    loadDeals()
+  }, [loadDeals])
+
+  async function handleSaveDeal(input: NewDealInput) {
+    if (!session) return
+    const deal = await createDeal({
+      ...input,
+      stage: 'lead',
+      userId: session.user.id,
+    })
+    setDeals((prev) => [...prev, deal])
+    setShowForm(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -35,18 +71,49 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold text-gray-900">Моя CRM</h1>
-      <p className="mt-4 text-gray-400 text-lg">Здесь будет доска сделок</p>
-      <button
-        type="button"
-        onClick={async () => {
-          await supabase.auth.signOut()
-        }}
-        className="mt-8 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-      >
-        Выйти
-      </button>
+    <div className="min-h-screen bg-gray-100">
+      <header className="border-b border-gray-200 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900">Моя CRM</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">
+              {session.user.email}
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                setDeals([])
+                await supabase.auth.signOut()
+              }}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-6 py-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">Доска сделок</h2>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+          >
+            + Новая сделка
+          </button>
+        </div>
+
+        {dealsLoading && (
+          <p className="mb-4 text-sm text-gray-400">Загрузка сделок…</p>
+        )}
+        <KanbanBoard deals={deals} />
+      </main>
+
+      {showForm && (
+        <DealForm onCancel={() => setShowForm(false)} onSave={handleSaveDeal} />
+      )}
     </div>
   )
 }
