@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { fetchDeals, createDeal } from './lib/dealsService'
-import type { Deal } from './types/deal'
+import { fetchDeals, createDeal, updateDealStage } from './lib/dealsService'
+import type { Deal, DealStage } from './types/deal'
 import type { NewDealInput } from './components/DealForm'
 import LoginScreen from './components/LoginScreen'
 import KanbanBoard from './components/KanbanBoard'
@@ -58,6 +58,18 @@ function App() {
     setShowForm(false)
   }
 
+  async function handleMoveDeal(dealId: string, stage: DealStage) {
+    const previous = deals
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, stage } : d)),
+    )
+    try {
+      await updateDealStage(dealId, stage)
+    } catch {
+      setDeals(previous)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,7 +120,7 @@ function App() {
         {dealsLoading && (
           <p className="mb-4 text-sm text-gray-400">Загрузка сделок…</p>
         )}
-        <KanbanBoard deals={deals} />
+        <KanbanBoard deals={deals} onMove={handleMoveDeal} />
       </main>
 
       {showForm && (

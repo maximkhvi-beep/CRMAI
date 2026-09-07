@@ -44,3 +44,17 @@ export async function createDeal(input: {
 
   return data as Deal
 }
+
+export async function updateDealStage(
+  dealId: string,
+  stage: DealStage,
+): Promise<void> {
+  const { error } = await supabase
+    .from('deals')
+    .update({ stage })
+    .eq('id', dealId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
